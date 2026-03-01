@@ -15,6 +15,9 @@ lerna-debug.log*
 # OS
 .DS_Store
 
+# PNPM STORE
+.pnpm-store
+
 # Tests
 /coverage
 /.nyc_output

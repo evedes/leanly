@@ -1,0 +1,24 @@
+{
+  "name": "leanly",
+  "version": "1.0.0",
+  "description": "<!-- Badges --> <p align=\"center\">   <a href=\"https://github.com/evedes/leanly/blob/main/LICENSE\"><img src=\"https://img.shields.io/badge/license-AGPLv3-blue.svg\" alt=\"License: AGPLv3\"></a>   <a href=\"https://github.com/evedes/leanly/stargazers\"><img src=\"https://img.shields.io/github/stars/evedes/leanly?style=social\" alt=\"GitHub Stars\"></a>   <a href=\"https://discord.gg/leanly\"><img src=\"https://img.shields.io/discord/000000000000000000?label=Discord&logo=discord&logoColor=white\" alt=\"Discord\"></a>   <a href=\"https://github.com/evedes/leanly/actions\"><img src=\"https://img.shields.io/github/actions/workflow/status/evedes/leanly/ci.yml?branch=main&label=CI\" alt=\"CI Status\"></a> </p>",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/evedes/leanly.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/evedes/leanly/issues"
+  },
+  "homepage": "https://github.com/evedes/leanly#readme"
+}

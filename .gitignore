@@ -1,28 +1,12 @@
-# Claude Code agent memory (internal strategy notes)
-.claude/agent-memory/
+node_modules
 
-# Dependencies
-node_modules/
+# Master Control runtime data
+.master-control
 
-# Environment
-.env
-.env.local
-.env.*.local
-
-# Next.js
-.next/
-out/
-
-# Build
-dist/
-build/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
+# Worktree environment symlinks
+.env.backend
+.env.test.backend
+.env.database
+.env.test.database
+.env.frontend
+.env.test.frontend

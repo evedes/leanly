@@ -1,0 +1,59 @@
+services:
+  db:
+    container_name: ${COMPOSE_PROJECT_NAME:-leanly}-db
+    image: postgres:17
+    hostname: db
+    restart: unless-stopped
+    ports:
+      - ${DB_PORT:-5032}:5432
+    env_file:
+      - ./.env.database
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    cap_add:
+      - SYS_NICE
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "root", "-d", "leanly"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    container_name: ${COMPOSE_PROJECT_NAME:-leanly}-frontend
+    image: node:24-alpine
+    hostname: client
+    restart: unless-stopped
+    command: sh -c "cd /app && corepack enable && corepack prepare pnpm@latest --activate && pnpm install && pnpm run dev"
+    ports:
+      - ${FRONTEND_PORT:-5030}:3000
+    env_file:
+      - ./.env.frontend
+    environment:
+      - NODE_ENV=development
+      - TURBOPACK_LOG_LEVEL=error
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
+
+  backend:
+    container_name: ${COMPOSE_PROJECT_NAME:-leanly}-backend
+    image: node:24-alpine
+    hostname: backend
+    command: sh -c "cd /app && corepack enable && corepack prepare pnpm@latest --activate && pnpm install && pnpm run db:migrate && pnpm run start:dev"
+    ports:
+      - ${BACKEND_PORT:-5031}:3001
+    env_file:
+      - ./.env.database
+      - ./.env.backend
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  postgres_data:
