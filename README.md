@@ -6,21 +6,10 @@
   <a href="https://github.com/evedes/leanly/actions"><img src="https://img.shields.io/github/actions/workflow/status/evedes/leanly/ci.yml?branch=main&label=CI" alt="CI Status"></a>
 </p>
 
-<!-- Logo + Name -->
-<h1 align="center">
-  <br>
-  <img src="docs/assets/logo.svg" alt="Leanly" width="200">
-  <br>
-  Leanly
-  <br>
-</h1>
+<!-- Name -->
+<h1 align="center">Leanly</h1>
 
 <p align="center"><strong>The open-source control plane for AI agents.</strong></p>
-
-<!-- Hero Screenshot -->
-<p align="center">
-  <img src="docs/assets/hero-screenshot.png" alt="Leanly — Execution Trace Viewer" width="800">
-</p>
 
 ---
 
