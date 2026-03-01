@@ -20,21 +20,22 @@ Your AI agents are working. You have no idea what they're doing.
 Leanly gives you a single workspace where humans lead and agents execute -- with full visibility into every reasoning step, every tool call, every dollar spent. No more Slack threads tracking agent output. No more terminal windows you forgot to check. No more silent failures burning tokens at 3am.
 
 ```
-              You                        Leanly                       Agent
+              You                     Leanly MCP                  Claude Code
                |                           |                            |
                |  1. Create task,          |                            |
                |     assign to agent       |                            |
                |  -----------------------> |                            |
-               |                           |  2. Agent picks up task    |
+               |                           |  2. Task notification      |
+               |                           |     (server-initiated)     |
                |                           |  ----------------------->  |
                |                           |                            |
-               |                           |  3. Agent logs execution   |
-               |                           |     trace (every step)     |
+               |                           |  3. log_trace (MCP tool)   |
+               |                           |     (every step)           |
                |                           |  <-----------------------  |
                |                           |                            |
-               |  4. Review trace,         |  5. Agent submits output   |
-               |     see what it did       |  <-----------------------  |
-               |  <----------------------- |                            |
+               |  4. Review trace,         |  5. submit_output          |
+               |     see what it did       |     (MCP tool)             |
+               |  <----------------------- |  <-----------------------  |
                |                           |                            |
                |  6. Approve / Reject      |                            |
                |  -----------------------> |  7. Task complete          |
@@ -50,7 +51,7 @@ Leanly gives you a single workspace where humans lead and agents execute -- with
 
 - **Autonomy Levels** -- Control how much freedom each agent gets per task. "Approve each step" for sensitive work, "Notify when done" for routine jobs. Trust is earned incrementally.
 
-- **Agent REST API** -- Connect any agent in minutes. Your agents fetch tasks, log traces, submit output, and request approval through a simple REST API. Framework-agnostic -- works with CrewAI, LangGraph, AutoGen, Claude Code, Cursor, or your own custom agents.
+- **MCP Integration** -- Claude Code connects to Leanly through a Model Context Protocol server. Agents fetch tasks, log traces, submit output, and request approval natively -- no SDK or HTTP glue code needed.
 
 - **Taskboard** -- One board for humans and agents. Assign tasks to either from the same picker. Agents get distinct avatars so you always know who (or what) is working on what.
 
@@ -60,19 +61,22 @@ Leanly gives you a single workspace where humans lead and agents execute -- with
 
 1. Sign up at [leanly.ink](https://leanly.ink)
 2. Create a workspace and register your first agent
-3. Connect your agent using the SDK:
+3. Add the Leanly MCP server to your Claude Code config:
 
-```typescript
-import { LeanlyAgent } from "@leanly/sdk";
-
-const agent = new LeanlyAgent({
-  apiKey: process.env.LEANLY_API_KEY,
-  agentId: "your-agent-id",
-});
-
-// Fetch assigned tasks, do work, report back
-const tasks = await agent.getTasks();
+```json
+{
+  "mcpServers": {
+    "leanly": {
+      "url": "https://mcp.leanly.ink/mcp",
+      "env": {
+        "LEANLY_API_KEY": "your-api-key"
+      }
+    }
+  }
+}
 ```
+
+4. Claude Code can now fetch tasks, log traces, and submit output directly.
 
 ### Self-Hosted
 
@@ -87,99 +91,28 @@ docker compose up -d
 
 Open `http://localhost:3000` and create your workspace.
 
-Then connect an agent:
+Then connect Claude Code to your self-hosted instance:
 
-```typescript
-import { LeanlyAgent } from "@leanly/sdk";
-
-const agent = new LeanlyAgent({
-  apiKey: process.env.LEANLY_API_KEY,
-  agentId: "your-agent-id",
-  baseUrl: "http://localhost:3000/api",  // Your self-hosted instance
-});
-
-const tasks = await agent.getTasks();
-
-for (const task of tasks) {
-  await agent.logTrace(task.id, {
-    type: "reasoning",
-    content: "Analyzing the requirements...",
-  });
-
-  // ... do the work ...
-
-  await agent.submitOutput(task.id, {
-    content: "Here are the results.",
-  });
+```json
+{
+  "mcpServers": {
+    "leanly": {
+      "url": "http://localhost:3000/mcp",
+      "env": {
+        "LEANLY_API_KEY": "your-api-key"
+      }
+    }
+  }
 }
 ```
 
-## Architecture
-
-```
-┌──────────────────┐     ┌──────────────────┐
-│   Browser (UI)   │     │   Your Agents    │
-│   Next.js App    │     │  (any framework) │
-└────────┬─────────┘     └────────┬─────────┘
-         │ tRPC                   │ REST API
-         │                        │ + API Key Auth
-         ▼                        ▼
-┌─────────────────────────────────────────────┐
-│              Leanly Server                  │
-│           (Next.js API Routes)              │
-│                                             │
-│  Taskboard · Agent API · Approvals · Auth   │
-└──────────────────────┬──────────────────────┘
-                       │ Drizzle ORM
-                       ▼
-              ┌─────────────────┐
-              │   PostgreSQL    │
-              └─────────────────┘
-```
-
-**Browser clients** connect over tRPC (type-safe, full-stack). **Agents** connect over REST with API key authentication. One Postgres database holds everything. Clerk handles human auth. Real-time updates (activity feed, trace streaming) use Server-Sent Events.
-
-## Self-Hosted vs Cloud
-
-|                        | Self-Hosted        | Cloud Free         | Cloud Pro            |
-| ---------------------- | ------------------ | ------------------ | -------------------- |
-| **Price**              | $0 (your infra)    | $0                 | $49/mo               |
-| **Humans**             | Unlimited          | 1                  | Unlimited            |
-| **Agents**             | Unlimited          | 2                  | Unlimited            |
-| **Agent tasks**        | Unlimited          | 50/mo              | Unlimited            |
-| **Trace retention**    | You decide         | 7 days             | 90 days              |
-| **Managed hosting**    | No                 | Yes                | Yes                  |
-| **SSO/SAML**          | No                 | No                 | Coming soon          |
-
-No per-seat pricing. No per-agent pricing.
-
 ## Works With
 
-Leanly is the coordination layer, not the AI provider. Bring your own agents:
-
-- [CrewAI](https://www.crewai.com/)
-- [LangGraph](https://langchain-ai.github.io/langgraph/)
-- [AutoGen](https://microsoft.github.io/autogen/)
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
-- [Cursor](https://cursor.com/)
-- Any agent that can make HTTP requests
-
-MCP (Model Context Protocol) support is on the roadmap. The REST API is the primary integration path today.
+Leanly integrates with [Claude Code](https://docs.anthropic.com/en/docs/claude-code) through the Model Context Protocol (MCP). Claude Code connects to the Leanly MCP server to fetch tasks, log execution traces, submit output, and request approval -- all natively from the terminal.
 
 ## Roadmap
 
-The MVP focuses on the core loop: assign a task to an agent, observe its execution trace, approve or reject the output.
-
-What comes next:
-
-- **Knowledge base** -- agents read and write shared docs with version history
-- **Guardrails** -- token limits, time limits, cost caps, auto-escalation on stuck agents
-- **Supervision mode** -- real-time streaming of agent work as it happens
-- **MCP protocol support** -- native Model Context Protocol integration
-- **CLI** -- `leanly tasks`, `leanly trace TASK-42`, `leanly approve TASK-42`
-- **Analytics dashboard** -- agent performance, cost, and throughput metrics
-
-See [`docs/product-spec.md`](docs/product-spec.md) for the full roadmap.
+See [`docs/mvp.md`](docs/mvp.md) for the full MVP scope, architecture, and roadmap.
 
 ## Contributing
 
@@ -195,4 +128,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) (coming soon).
 
 ## License
 
-Leanly is open source under the [GNU AGPLv3 License](LICENSE). The Agent SDKs (`@leanly/sdk`) are MIT licensed.
+Leanly is open source under the [GNU AGPLv3 License](LICENSE).
