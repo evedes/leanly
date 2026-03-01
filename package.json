@@ -7,7 +7,9 @@
     "doc": "docs"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev:up": "docker compose --env-file .env.worktree -f docker-compose.dev.yaml up",
+    "dev:down": "docker compose --env-file .env.worktree -f docker-compose.dev.yaml down --remove-orphans",
+    "dev:clean": "docker compose --env-file .env.worktree -f docker-compose.dev.yaml down -v"
   },
   "repository": {
     "type": "git",
