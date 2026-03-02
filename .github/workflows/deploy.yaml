@@ -1,0 +1,199 @@
+name: Deploy to Batman
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: leanly_test
+          POSTGRES_USER: leanly
+          POSTGRES_PASSWORD: leanly
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U leanly -d leanly_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store/v10
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: pnpm-store-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: |
+          cd frontend && pnpm install --frozen-lockfile
+          cd ../backend && pnpm install --frozen-lockfile
+
+      - name: Backend unit tests
+        run: cd backend && pnpm run test
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: ghcr.io/${{ github.repository }}/backend:latest
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/backend:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}/backend:buildcache,mode=max
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          tags: ghcr.io/${{ github.repository }}/frontend:latest
+          build-args: |
+            API_URL=${{ secrets.API_URL }}
+            NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/frontend:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}/frontend:buildcache,mode=max
+
+  migrate:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:batman-ci
+
+      - name: Run Database Migrations
+        uses: appleboy/ssh-action@v0.1.0
+        with:
+          host: ${{ secrets.BATMAN_SERVER_IP }}
+          username: ${{ secrets.BATMAN_SERVER_USER }}
+          key: ${{ secrets.BATMAN_SERVER_SSH_KEY }}
+          port: 22
+          script: |
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker pull ghcr.io/${{ github.repository }}/backend:latest
+
+            cat > /home/${{ secrets.BATMAN_SERVER_USER }}/.env.leanly << EOF
+            API_PORT=${{ secrets.API_PORT }}
+            API_URL=${{ secrets.API_URL }}
+            FRONTEND_URL=${{ secrets.FRONTEND_URL }}
+            NODE_ENV=${{ secrets.NODE_ENV }}
+            ALLOWED_ORIGINS=${{ secrets.ALLOWED_ORIGINS }}
+            POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+            POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+            POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}
+            POSTGRES_PORT=${{ secrets.POSTGRES_PORT }}
+            POSTGRES_SSL=${{ secrets.POSTGRES_SSL }}
+            EOF
+
+            echo "Running migrations with new backend image..."
+            docker run --rm \
+              --env-file /home/${{ secrets.BATMAN_SERVER_USER }}/.env.leanly \
+              --network batmanvps \
+              ghcr.io/${{ github.repository }}/backend:latest \
+              npx tsx src/database/migrate.ts
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: migrate
+    steps:
+      - name: Checkout code (for access to docker-compose-leanly.yaml)
+        uses: actions/checkout@v4
+
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:batman-ci
+
+      - name: Copy docker-compose-leanly.yaml to Batman
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          source: "docker-compose-leanly.yaml"
+          target: /home/${{ secrets.BATMAN_SERVER_USER}}/
+          host: ${{ secrets.BATMAN_SERVER_IP }}
+          username: ${{ secrets.BATMAN_SERVER_USER }}
+          key: ${{ secrets.BATMAN_SERVER_SSH_KEY }}
+
+      - name: Deploy to Batman
+        uses: appleboy/ssh-action@v0.1.0
+        with:
+          host: ${{ secrets.BATMAN_SERVER_IP }}
+          username: ${{ secrets.BATMAN_SERVER_USER }}
+          key: ${{ secrets.BATMAN_SERVER_SSH_KEY }}
+          port: 22
+          script: |
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker pull ghcr.io/${{ github.repository }}/frontend:latest
+
+            docker compose -f docker-compose-leanly.yaml --env-file .env.leanly up -d
+            docker compose -f docker-compose-reverseproxy.yaml restart
+
+      - name: List and remove non-latest images in Batman server
+        uses: appleboy/ssh-action@v0.1.0
+        with:
+          host: ${{ secrets.BATMAN_SERVER_IP }}
+          username: ${{ secrets.BATMAN_SERVER_USER }}
+          key: ${{ secrets.BATMAN_SERVER_SSH_KEY }}
+          port: 22
+          script: |
+            images=$(docker images --format '{{.Repository}}:{{.Tag}} {{.ID}}' | grep -v ':latest' || true)
+
+            if [ -z "$images" ]; then
+              echo "No non-latest images to remove"
+              exit 0
+            fi
+
+            echo "Images to be removed:"
+            echo "$images"
+
+            while IFS= read -r image; do
+              if [ -n "$image" ]; then
+                repo_tag=$(echo $image | awk '{print $1}')
+                image_id=$(echo $image | awk '{print $2}')
+                echo "Removing image $repo_tag with ID $image_id"
+                docker rmi "$image_id" || true
+              fi
+            done <<< "$images"

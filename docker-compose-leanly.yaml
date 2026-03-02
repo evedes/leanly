@@ -1,0 +1,22 @@
+services:
+  leanly-backend:
+    container_name: leanly-backend
+    image: ghcr.io/evedes/leanly/backend:latest
+    restart: unless-stopped
+    env_file:
+      - .env.leanly
+    networks:
+      - batmanvps
+  leanly-frontend:
+    container_name: leanly-frontend
+    image: ghcr.io/evedes/leanly/frontend:latest
+    restart: unless-stopped
+    env_file:
+      - .env.leanly
+    depends_on:
+      - leanly-backend
+    networks:
+      - batmanvps
+networks:
+  batmanvps:
+    external: true
