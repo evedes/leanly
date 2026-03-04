@@ -103,7 +103,7 @@ jobs:
           tags: tag:batman-ci
 
       - name: Run Database Migrations
-        uses: appleboy/ssh-action@v0.1.0
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.BATMAN_SERVER_IP }}
           username: ${{ secrets.BATMAN_SERVER_USER }}
@@ -158,7 +158,7 @@ jobs:
           key: ${{ secrets.BATMAN_SERVER_SSH_KEY }}
 
       - name: Deploy to Batman
-        uses: appleboy/ssh-action@v0.1.0
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.BATMAN_SERVER_IP }}
           username: ${{ secrets.BATMAN_SERVER_USER }}
@@ -172,7 +172,7 @@ jobs:
             docker compose -f docker-compose-reverseproxy.yaml restart
 
       - name: List and remove non-latest images in Batman server
-        uses: appleboy/ssh-action@v0.1.0
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.BATMAN_SERVER_IP }}
           username: ${{ secrets.BATMAN_SERVER_USER }}
