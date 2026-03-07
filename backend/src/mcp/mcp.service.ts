@@ -41,53 +41,36 @@ export class McpService implements OnModuleDestroy {
   private registerTools(server: McpServer, agent: AgentContext) {
     const { agentId, workspaceId } = agent;
 
+    // LEA-12: get_tasks — Fetch tasks assigned to the calling agent
     server.tool(
-      'list_tasks',
-      'List tasks in the workspace. Filterable by status and assignee type.',
+      'get_tasks',
+      'Fetch all tasks assigned to this agent. Supports optional status filter.',
       {
         status: z.enum(['todo', 'in_progress', 'in_review', 'approved', 'rejected']).optional(),
-        assignee_type: z.enum(['human', 'agent']).optional(),
-        cursor: z.string().optional(),
-        limit: z.number().int().min(1).max(100).optional(),
       },
       async (args) => {
-        const result = await this.tasksService.findAll(workspaceId, args);
-        return { content: [{ type: 'text', text: JSON.stringify(result) }] };
+        const tasks = await this.tasksService.findByAssignee(workspaceId, agentId, {
+          status: args.status,
+        });
+        return { content: [{ type: 'text', text: JSON.stringify(tasks) }] };
       },
     );
 
+    // LEA-12: get_task — Fetch a single task with full details, traces, and reviewer comments
     server.tool(
       'get_task',
-      'Get a task by ID, including its execution traces.',
+      'Get a task by ID with full details including traces and reviewer comments.',
       { task_id: z.string().uuid() },
       async (args) => {
-        const task = await this.tasksService.findOneWithTraces(args.task_id, workspaceId);
+        const task = await this.tasksService.findOneWithDetails(args.task_id, workspaceId);
         return { content: [{ type: 'text', text: JSON.stringify(task) }] };
       },
     );
 
+    // LEA-13: log_trace — Append a trace entry to a task
     server.tool(
-      'update_task',
-      'Update a task (status, title, description, assignee, autonomy level).',
-      {
-        task_id: z.string().uuid(),
-        title: z.string().min(1).max(500).optional(),
-        description: z.string().optional(),
-        status: z.enum(['todo', 'in_progress', 'in_review', 'approved', 'rejected']).optional(),
-        assignee_type: z.enum(['human', 'agent']).optional(),
-        assignee_id: z.string().uuid().optional(),
-        autonomy_level: z.number().int().min(0).max(2).optional(),
-      },
-      async (args) => {
-        const { task_id, ...data } = args;
-        const task = await this.tasksService.update(task_id, workspaceId, data);
-        return { content: [{ type: 'text', text: JSON.stringify(task) }] };
-      },
-    );
-
-    server.tool(
-      'create_trace',
-      'Log an execution trace entry for a task.',
+      'log_trace',
+      'Log an execution trace entry for a task. Task must be assigned to this agent and in "in_progress" status.',
       {
         task_id: z.string().uuid(),
         type: z.enum(['reasoning', 'tool_call', 'output', 'error']),
@@ -95,6 +78,15 @@ export class McpService implements OnModuleDestroy {
         token_count: z.number().int().optional(),
       },
       async (args) => {
+        const task = await this.tasksService.findOne(args.task_id, workspaceId);
+
+        if (task.assigneeType !== 'agent' || task.assigneeId !== agentId) {
+          throw new Error('Task is not assigned to this agent');
+        }
+        if (task.status !== 'in_progress') {
+          throw new Error('Task must be in "in_progress" status to log traces');
+        }
+
         const trace = await this.tracesService.create(
           args.task_id,
           agentId,
@@ -102,6 +94,74 @@ export class McpService implements OnModuleDestroy {
           { type: args.type, content: args.content as Record<string, unknown>, token_count: args.token_count },
         );
         return { content: [{ type: 'text', text: JSON.stringify(trace) }] };
+      },
+    );
+
+    // LEA-13: submit_output — Submit final output and move task to in_review
+    server.tool(
+      'submit_output',
+      'Submit the final output for a task. Moves the task from "in_progress" to "in_review" and creates an output trace entry.',
+      {
+        task_id: z.string().uuid(),
+        output: z.union([z.string(), z.record(z.string(), z.unknown())]),
+      },
+      async (args) => {
+        const task = await this.tasksService.findOne(args.task_id, workspaceId);
+
+        if (task.assigneeType !== 'agent' || task.assigneeId !== agentId) {
+          throw new Error('Task is not assigned to this agent');
+        }
+        if (task.status !== 'in_progress') {
+          throw new Error('Task must be in "in_progress" status to submit output');
+        }
+
+        const outputContent = typeof args.output === 'string'
+          ? { output: args.output }
+          : args.output as Record<string, unknown>;
+
+        // Create the output trace
+        await this.tracesService.create(
+          args.task_id,
+          agentId,
+          workspaceId,
+          { type: 'output', content: outputContent },
+        );
+
+        // Transition task to in_review
+        const updated = await this.tasksService.update(args.task_id, workspaceId, {
+          status: 'in_review',
+        });
+
+        return { content: [{ type: 'text', text: JSON.stringify(updated) }] };
+      },
+    );
+
+    // LEA-14: request_input — Ask the human for clarification
+    server.tool(
+      'request_input',
+      'Ask the human for clarification on a task. Creates a trace entry with the question. The agent can poll for responses via get_task.',
+      {
+        task_id: z.string().uuid(),
+        question: z.string().min(1).max(5000),
+      },
+      async (args) => {
+        const task = await this.tasksService.findOne(args.task_id, workspaceId);
+
+        if (task.assigneeType !== 'agent' || task.assigneeId !== agentId) {
+          throw new Error('Task is not assigned to this agent');
+        }
+        if (task.status !== 'in_progress') {
+          throw new Error('Task must be in "in_progress" status to request input');
+        }
+
+        const trace = await this.tracesService.create(
+          args.task_id,
+          agentId,
+          workspaceId,
+          { type: 'reasoning', content: { input_request: true, question: args.question } },
+        );
+
+        return { content: [{ type: 'text', text: JSON.stringify({ input_request_id: trace.id, question: args.question }) }] };
       },
     );
   }

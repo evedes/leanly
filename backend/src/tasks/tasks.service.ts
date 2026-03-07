@@ -4,9 +4,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { eq, and, gt, asc, sql, type SQL } from 'drizzle-orm';
+import { eq, and, gt, asc, desc, sql, type SQL } from 'drizzle-orm';
 import { DRIZZLE, type DrizzleDB } from '../database/index.js';
-import { tasks, traces } from '../database/schema/index.js';
+import { tasks, traces, approvals } from '../database/schema/index.js';
 
 type TaskStatus = 'todo' | 'in_progress' | 'in_review' | 'approved' | 'rejected';
 
@@ -106,6 +106,28 @@ export class TasksService {
     return task;
   }
 
+  async findByAssignee(
+    workspaceId: string,
+    agentId: string,
+    options: { status?: TaskStatus } = {},
+  ) {
+    const conditions: SQL[] = [
+      eq(tasks.workspaceId, workspaceId),
+      eq(tasks.assigneeType, 'agent'),
+      eq(tasks.assigneeId, agentId),
+    ];
+
+    if (options.status) {
+      conditions.push(eq(tasks.status, options.status));
+    }
+
+    return this.db
+      .select()
+      .from(tasks)
+      .where(and(...conditions))
+      .orderBy(asc(tasks.createdAt), asc(tasks.id));
+  }
+
   async findOneWithTraces(id: string, workspaceId: string) {
     const task = await this.findOne(id, workspaceId);
 
@@ -116,6 +138,45 @@ export class TasksService {
       .orderBy(asc(traces.timestamp), asc(traces.id));
 
     return { ...task, traces: taskTraces };
+  }
+
+  async findOneWithDetails(id: string, workspaceId: string) {
+    const task = await this.findOne(id, workspaceId);
+
+    const taskTraces = await this.db
+      .select()
+      .from(traces)
+      .where(eq(traces.taskId, id))
+      .orderBy(asc(traces.timestamp), asc(traces.id));
+
+    const taskApprovals = await this.db
+      .select()
+      .from(approvals)
+      .where(eq(approvals.taskId, id))
+      .orderBy(desc(approvals.createdAt));
+
+    return { ...task, traces: taskTraces, approvals: taskApprovals };
+  }
+
+  async respondToInputRequest(id: string, workspaceId: string, response: string, responderId: string) {
+    const task = await this.findOne(id, workspaceId);
+
+    if (task.status !== 'in_progress') {
+      throw new BadRequestException('Task is not in progress');
+    }
+
+    // Store the response as a trace entry with reasoning type
+    const [trace] = await this.db
+      .insert(traces)
+      .values({
+        taskId: id,
+        agentId: task.assigneeId!,
+        type: 'reasoning',
+        content: { input_response: true, response, responder_id: responderId },
+      })
+      .returning();
+
+    return trace;
   }
 
   async update(

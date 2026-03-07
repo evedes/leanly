@@ -14,6 +14,7 @@ import {
 import { TasksService } from './tasks.service.js';
 import { CreateTaskDto } from './dto/create-task.dto.js';
 import { UpdateTaskDto } from './dto/update-task.dto.js';
+import { RespondInputDto } from './dto/respond-input.dto.js';
 import { CurrentUser, type ClerkUser } from '../auth/index.js';
 import { WorkspacesService } from '../workspaces/index.js';
 
@@ -75,6 +76,17 @@ export class TasksController {
   ) {
     await this.resolveWorkspace(workspaceId, user);
     return this.tasksService.update(id, workspaceId, dto);
+  }
+
+  @Post(':id/respond')
+  async respond(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RespondInputDto,
+    @Query('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @CurrentUser() user: ClerkUser,
+  ) {
+    await this.resolveWorkspace(workspaceId, user);
+    return this.tasksService.respondToInputRequest(id, workspaceId, dto.response, user.userId);
   }
 
   @Delete(':id')
