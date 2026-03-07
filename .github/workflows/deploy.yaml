@@ -88,6 +88,8 @@ jobs:
           build-args: |
             API_URL=${{ secrets.API_URL }}
             NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
+            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+            CLERK_SECRET_KEY=${{ secrets.CLERK_SECRET_KEY }}
           cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/frontend:buildcache
           cache-to: type=registry,ref=ghcr.io/${{ github.repository }}/frontend:buildcache,mode=max
 
@@ -125,6 +127,8 @@ jobs:
             POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}
             POSTGRES_PORT=${{ secrets.POSTGRES_PORT }}
             POSTGRES_SSL=${{ secrets.POSTGRES_SSL }}
+            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+            CLERK_SECRET_KEY=${{ secrets.CLERK_SECRET_KEY }}
             EOF
 
             echo "Running migrations with new backend image..."
