@@ -10,9 +10,10 @@ import { AgentsModule } from './agents/index.js';
 import { TracesModule } from './traces/index.js';
 import { TasksModule } from './tasks/index.js';
 import { ApprovalsModule } from './approvals/index.js';
+import { McpModule } from './mcp/index.js';
 
 @Module({
-  imports: [DatabaseModule, ApiKeysModule, WorkspacesModule, AgentsModule, TracesModule, TasksModule, ApprovalsModule],
+  imports: [DatabaseModule, ApiKeysModule, WorkspacesModule, AgentsModule, TracesModule, TasksModule, ApprovalsModule, McpModule],
   controllers: [AppController],
   providers: [
     AppService,
