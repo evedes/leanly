@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuth, UserButton } from "@clerk/nextjs";
 
 export default function Home() {
+  const { getToken } = useAuth();
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,6 +20,9 @@ export default function Home() {
 
   return (
     <div className="flex flex-col gap-2 min-h-screen items-center justify-center bg-zinc-50 font-sans">
+      <div className="absolute top-4 right-4">
+        <UserButton />
+      </div>
       <div>leanly.ink</div>
       <div className="text-xs">
         {error ? (
