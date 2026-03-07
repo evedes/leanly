@@ -6,9 +6,11 @@ import { DatabaseModule } from './database/index.js';
 import { ClerkAuthGuard } from './auth/index.js';
 import { ApiKeysModule } from './api-keys/index.js';
 import { WorkspacesModule } from './workspaces/index.js';
+import { AgentsModule } from './agents/index.js';
+import { TracesModule } from './traces/index.js';
 
 @Module({
-  imports: [DatabaseModule, ApiKeysModule, WorkspacesModule],
+  imports: [DatabaseModule, ApiKeysModule, WorkspacesModule, AgentsModule, TracesModule],
   controllers: [AppController],
   providers: [
     AppService,
