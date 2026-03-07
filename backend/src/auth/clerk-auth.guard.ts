@@ -7,6 +7,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { verifyToken } from '@clerk/backend';
 import { IS_PUBLIC_KEY } from './public.decorator.js';
+import { IS_AGENT_ENDPOINT } from '../api-keys/api-key-auth.guard.js';
 
 @Injectable()
 export class ClerkAuthGuard implements CanActivate {
@@ -18,6 +19,12 @@ export class ClerkAuthGuard implements CanActivate {
       context.getClass(),
     ]);
     if (isPublic) return true;
+
+    const isAgentEndpoint = this.reflector.getAllAndOverride<boolean>(
+      IS_AGENT_ENDPOINT,
+      [context.getHandler(), context.getClass()],
+    );
+    if (isAgentEndpoint) return true;
 
     const request = context.switchToHttp().getRequest();
     const authHeader = request.headers.authorization;
