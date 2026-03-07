@@ -5,9 +5,10 @@ import { AppService } from './app.service';
 import { DatabaseModule } from './database/index.js';
 import { ClerkAuthGuard } from './auth/index.js';
 import { ApiKeysModule } from './api-keys/index.js';
+import { WorkspacesModule } from './workspaces/index.js';
 
 @Module({
-  imports: [DatabaseModule, ApiKeysModule],
+  imports: [DatabaseModule, ApiKeysModule, WorkspacesModule],
   controllers: [AppController],
   providers: [
     AppService,
