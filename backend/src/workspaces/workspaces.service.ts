@@ -12,10 +12,21 @@ import { workspaces } from '../database/schema/index.js';
 export class WorkspacesService {
   constructor(@Inject(DRIZZLE) private db: DrizzleDB) {}
 
+  private generateSlug(name: string): string {
+    return name
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/[\s_]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+  }
+
   async create(name: string, orgId: string) {
+    const slug = this.generateSlug(name);
     const [workspace] = await this.db
       .insert(workspaces)
-      .values({ name, orgId })
+      .values({ name, slug, orgId })
       .returning();
 
     return workspace;
@@ -38,7 +49,7 @@ export class WorkspacesService {
     return workspace;
   }
 
-  async update(id: string, orgId: string, data: { name?: string }) {
+  async update(id: string, orgId: string, data: { name?: string; slug?: string }) {
     const workspace = await this.findOne(id, orgId);
 
     const [updated] = await this.db
