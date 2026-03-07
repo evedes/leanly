@@ -9,9 +9,10 @@ import { WorkspacesModule } from './workspaces/index.js';
 import { AgentsModule } from './agents/index.js';
 import { TracesModule } from './traces/index.js';
 import { TasksModule } from './tasks/index.js';
+import { ApprovalsModule } from './approvals/index.js';
 
 @Module({
-  imports: [DatabaseModule, ApiKeysModule, WorkspacesModule, AgentsModule, TracesModule, TasksModule],
+  imports: [DatabaseModule, ApiKeysModule, WorkspacesModule, AgentsModule, TracesModule, TasksModule, ApprovalsModule],
   controllers: [AppController],
   providers: [
     AppService,
