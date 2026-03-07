@@ -1,4 +1,4 @@
-import type { Task, TaskStatus, AssigneeType } from '@/types/task';
+import type { Task, TaskWithDetails, TaskStatus, AssigneeType } from '@/types/task';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL!;
 
@@ -73,5 +73,30 @@ export async function updateTask(
 export async function deleteTask(token: string, workspaceId: string, taskId: string): Promise<void> {
   return apiFetch<void>(`/tasks/${taskId}?workspaceId=${workspaceId}`, token, {
     method: 'DELETE',
+  });
+}
+
+export async function fetchTask(token: string, workspaceId: string, taskId: string): Promise<TaskWithDetails> {
+  return apiFetch<TaskWithDetails>(`/tasks/${taskId}?workspaceId=${workspaceId}`, token);
+}
+
+export async function approveTask(token: string, workspaceId: string, taskId: string, comment?: string): Promise<unknown> {
+  return apiFetch(`/tasks/${taskId}/approve?workspaceId=${workspaceId}`, token, {
+    method: 'POST',
+    body: JSON.stringify({ comment }),
+  });
+}
+
+export async function rejectTask(token: string, workspaceId: string, taskId: string, comment?: string): Promise<unknown> {
+  return apiFetch(`/tasks/${taskId}/reject?workspaceId=${workspaceId}`, token, {
+    method: 'POST',
+    body: JSON.stringify({ comment }),
+  });
+}
+
+export async function requestChanges(token: string, workspaceId: string, taskId: string, comment?: string): Promise<unknown> {
+  return apiFetch(`/tasks/${taskId}/request-changes?workspaceId=${workspaceId}`, token, {
+    method: 'POST',
+    body: JSON.stringify({ comment }),
   });
 }

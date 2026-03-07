@@ -30,3 +30,29 @@ export const AUTONOMY_LABELS: Record<number, string> = {
   1: 'Checkpoint',
   2: 'Autonomous',
 };
+
+export type TraceType = 'reasoning' | 'tool_call' | 'output' | 'error';
+
+export interface Trace {
+  id: string;
+  taskId: string;
+  agentId: string;
+  type: TraceType;
+  content: Record<string, unknown>;
+  tokenCount: number | null;
+  timestamp: string;
+}
+
+export interface Approval {
+  id: string;
+  taskId: string;
+  reviewerId: string;
+  decision: 'approved' | 'rejected' | 'changes_requested';
+  comment: string | null;
+  createdAt: string;
+}
+
+export interface TaskWithDetails extends Task {
+  traces: Trace[];
+  approvals?: Approval[];
+}

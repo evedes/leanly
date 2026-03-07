@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from 'next/navigation';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { Task } from '@/types/task';
@@ -17,6 +18,7 @@ function timeAgo(dateStr: string): string {
 }
 
 export function TaskCard({ task }: { task: Task }) {
+  const router = useRouter();
   const {
     attributes,
     listeners,
@@ -40,7 +42,12 @@ export function TaskCard({ task }: { task: Task }) {
       {...listeners}
       className="bg-white border border-zinc-200 rounded-lg p-3 shadow-sm cursor-grab active:cursor-grabbing hover:border-zinc-300 transition-colors"
     >
-      <p className="text-sm font-medium text-zinc-900 leading-snug">{task.title}</p>
+      <p
+        className="text-sm font-medium text-zinc-900 leading-snug hover:text-blue-600 cursor-pointer"
+        onClick={() => router.push(`/taskboard/${task.id}`)}
+      >
+        {task.title}
+      </p>
       <div className="mt-2 flex items-center gap-2 text-xs text-zinc-500">
         {task.assigneeType && (
           <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
