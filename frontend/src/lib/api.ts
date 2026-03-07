@@ -76,6 +76,18 @@ export async function deleteTask(token: string, workspaceId: string, taskId: str
   });
 }
 
+export interface Agent {
+  id: string;
+  name: string;
+  workspaceId: string;
+  status: string;
+  createdAt: string;
+}
+
+export async function fetchAgents(token: string, workspaceId: string): Promise<Agent[]> {
+  return apiFetch<Agent[]>(`/agents?workspaceId=${workspaceId}`, token);
+}
+
 export async function fetchTask(token: string, workspaceId: string, taskId: string): Promise<TaskWithDetails> {
   return apiFetch<TaskWithDetails>(`/tasks/${taskId}?workspaceId=${workspaceId}`, token);
 }

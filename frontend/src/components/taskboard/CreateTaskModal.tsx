@@ -1,7 +1,11 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuth } from '@clerk/nextjs';
 import type { AssigneeType } from '@/types/task';
+import { fetchAgents, type Agent } from '@/lib/api';
+
+const WORKSPACE_ID = process.env.NEXT_PUBLIC_WORKSPACE_ID ?? '';
 
 interface CreateTaskModalProps {
   open: boolean;
@@ -16,6 +20,7 @@ interface CreateTaskModalProps {
 }
 
 export function CreateTaskModal({ open, onClose, onSubmit }: CreateTaskModalProps) {
+  const { getToken } = useAuth();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [assigneeType, setAssigneeType] = useState<AssigneeType | ''>('');
@@ -23,6 +28,21 @@ export function CreateTaskModal({ open, onClose, onSubmit }: CreateTaskModalProp
   const [autonomyLevel, setAutonomyLevel] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [agents, setAgents] = useState<Agent[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      try {
+        const token = await getToken();
+        if (!token) return;
+        const data = await fetchAgents(token, WORKSPACE_ID);
+        setAgents(data.filter((a) => a.status === 'active'));
+      } catch {
+        // silently fail — agents dropdown will be empty
+      }
+    })();
+  }, [open, getToken]);
 
   if (!open) return null;
 
@@ -80,15 +100,29 @@ export function CreateTaskModal({ open, onClose, onSubmit }: CreateTaskModalProp
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-zinc-600 mb-1">Assignee Type</label>
+              <label className="block text-xs font-medium text-zinc-600 mb-1">Assign to</label>
               <select
-                value={assigneeType}
-                onChange={(e) => setAssigneeType(e.target.value as AssigneeType | '')}
+                value={assigneeType ? `${assigneeType}:${assigneeId}` : ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (!val) {
+                    setAssigneeType('');
+                    setAssigneeId('');
+                  } else {
+                    const [type, id] = val.split(':');
+                    setAssigneeType(type as AssigneeType);
+                    setAssigneeId(id);
+                  }
+                }}
                 className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">Unassigned</option>
-                <option value="human">Human</option>
-                <option value="agent">Agent</option>
+                <option value="human:">Myself (Human)</option>
+                {agents.map((agent) => (
+                  <option key={agent.id} value={`agent:${agent.id}`}>
+                    {agent.name} (Agent)
+                  </option>
+                ))}
               </select>
             </div>
             <div>
@@ -104,18 +138,6 @@ export function CreateTaskModal({ open, onClose, onSubmit }: CreateTaskModalProp
               </select>
             </div>
           </div>
-          {assigneeType && (
-            <div>
-              <label className="block text-xs font-medium text-zinc-600 mb-1">Assignee ID</label>
-              <input
-                type="text"
-                value={assigneeId}
-                onChange={(e) => setAssigneeId(e.target.value)}
-                className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="UUID of the assignee"
-              />
-            </div>
-          )}
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <button
